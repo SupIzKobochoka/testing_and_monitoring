@@ -2,6 +2,8 @@ import pandas as pd
 
 from ml_service.schemas import PredictRequest
 
+class MissingColumnsError(Exception):
+    pass
 
 FEATURE_COLUMNS = [
     'age',
@@ -25,5 +27,12 @@ def to_dataframe(req: PredictRequest, needed_columns: list[str] = None) -> pd.Da
     columns = [
         column for column in needed_columns if column in FEATURE_COLUMNS
     ] if needed_columns is not None else FEATURE_COLUMNS
-    row = [getattr(req, column.replace('.', '_')) for column in columns]
+    columns_without_dot = [col.replace('.', '_') for col in columns]
+    
+    missing_collumns = [col for col in columns_without_dot
+                        if col not in req.model_dump(exclude_none=True).keys()]
+    if missing_collumns:
+        raise MissingColumnsError(f'missing {missing_collumns} values')
+
+    row = [getattr(req, column) for column in columns_without_dot]
     return pd.DataFrame([row], columns=columns)
